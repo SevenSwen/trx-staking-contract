@@ -1,6 +1,5 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const { BigNumber } = require("ethers");
 
 const increaseTime = async(time) => {
   await ethers.provider.send("evm_increaseTime", [time])
