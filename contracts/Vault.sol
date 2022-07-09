@@ -13,52 +13,54 @@ contract Vault is Ownable, ReentrancyGuard {
         Average,
         Slow
     }
-    
+
     struct Deposit {
-        address payable owner;
         uint256 amount;
-        uint256 creationTime;
-        uint256 completionTime;
+        address payable owner;
+        uint32 creationTime;
+        uint32 completionTime;
         Tariff tariff;
     }
-    
+
     uint256 constant private BASE_PERCENTAGE = 10000;
-    uint256 constant private SECONDS_PER_MINUTE = 60;
-    mapping(address => Deposit) public deposits;
-    EnumerableSet.AddressSet private depositors;
-    uint256 public fastTariffDuration;
-    uint256 public averageTariffDuration;
-    uint256 public slowTariffDuration;
+    // uint256 constant private SECONDS_PER_MINUTE = 60; // "minutes" alias
+
     uint256 public totalStakingBalance;
     uint256 public percentagePerMinute;
     uint256 public feePercentage;
     address payable public feeReceiver;
 
-    event Stake(Deposit deposit);
-    event Withdraw(Deposit deposit, uint256 reward);
-    
+    mapping(Tariff => uint32) public tariffDuration;
+    mapping(address => Deposit) public deposits;
+    EnumerableSet.AddressSet private depositors;
+
+    event Stake(Deposit deposit, uint256 amount);
+    event Withdraw(Deposit deposit, uint256 amount, uint256 reward);
+
     constructor(
-        uint256 _fastTariffDuration,
-        uint256 _averageTariffDuration,
-        uint256 _slowTariffDuration,
+        uint32 _fastTariffDuration,
+        uint32 _averageTariffDuration,
+        uint32 _slowTariffDuration,
         uint256 _percentagePerMinute,
         uint256 _feePercentage,
         address _feeReceiver
     ) {
-        fastTariffDuration = _fastTariffDuration;
-        averageTariffDuration = _averageTariffDuration;
-        slowTariffDuration = _slowTariffDuration;
+        tariffDuration[Tariff.Fast] = _fastTariffDuration;
+        tariffDuration[Tariff.Average] = _averageTariffDuration;
+        tariffDuration[Tariff.Slow] = _slowTariffDuration;
         percentagePerMinute = _percentagePerMinute;
         feePercentage = _feePercentage;
         feeReceiver = payable(_feeReceiver);
     }
-    
-    receive() external payable {}
-    
+
+    receive() external payable {
+        // TODO: maybe call _checkOwner()
+    }
+
     function configure(
-        uint256 _fastTariffDuration,
-        uint256 _averageTariffDuration,
-        uint256 _slowTariffDuration,
+        uint32 _fastTariffDuration,
+        uint32 _averageTariffDuration,
+        uint32 _slowTariffDuration,
         uint256 _percentagePerMinute,
         uint256 _feePercentage,
         address _feeReceiver
@@ -66,14 +68,15 @@ contract Vault is Ownable, ReentrancyGuard {
         external
         onlyOwner
     {
-        fastTariffDuration = _fastTariffDuration;
-        averageTariffDuration = _averageTariffDuration;
-        slowTariffDuration = _slowTariffDuration;
+        // TODO: maybe add checks
+        tariffDuration[Tariff.Fast] = _fastTariffDuration;
+        tariffDuration[Tariff.Average] = _averageTariffDuration;
+        tariffDuration[Tariff.Slow] = _slowTariffDuration;
         percentagePerMinute = _percentagePerMinute;
         feePercentage = _feePercentage;
         feeReceiver = payable(_feeReceiver);
     }
-    
+
     function stake(Tariff tariff) external payable nonReentrant {
         require(
             msg.value > 0,
@@ -84,21 +87,22 @@ contract Vault is Ownable, ReentrancyGuard {
             "user is already a staker"
         );
         uint256 fee = msg.value * feePercentage / BASE_PERCENTAGE;
-        feeReceiver.transfer(fee);
-        uint256 completionTime = getCompletionTime(tariff);
+        uint256 amount = msg.value - fee;
+        feeReceiver.transfer(fee); // 21000 gas cost
+        uint32 completionTime = uint32(block.timestamp) + tariffDuration[tariff] * 1 minutes;
         Deposit memory deposit = Deposit(
+            amount,
             payable(msg.sender),
-            msg.value - fee,
-            block.timestamp,
-            completionTime,
+            uint32(block.timestamp),
+            uint32(completionTime),
             tariff
         );
         deposits[msg.sender] = deposit;
         depositors.add(msg.sender);
-        totalStakingBalance += msg.value - fee;
-        emit Stake(deposit);
+        totalStakingBalance += amount;
+        emit Stake(deposit, amount);
     }
-    
+
     function withdraw() external nonReentrant {
         require(
             depositors.contains(msg.sender),
@@ -110,60 +114,25 @@ contract Vault is Ownable, ReentrancyGuard {
         );
         Deposit memory deposit = deposits[msg.sender];
         address payable depositor = deposit.owner;
-        uint256 reward = calculateReward(deposit.amount, deposit.tariff);
+        // uint256 reward = calculateReward(deposit.amount, deposit.tariff); // reward = amount + amount * percentagePerMinute * duration
+        uint256 reward = deposit.amount * (1 + percentagePerMinute * uint32(tariffDuration[deposit.tariff]) / BASE_PERCENTAGE);
         if (address(this).balance < reward) {
             reward = deposit.amount;
-            depositor.transfer(reward);
-        } else {
-            depositor.transfer(reward);
         }
+
         delete deposits[msg.sender];
         depositors.remove(msg.sender);
         totalStakingBalance -= deposit.amount;
-        emit Withdraw(deposit, reward);
+
+        depositor.transfer(reward);
+        emit Withdraw(deposit, deposit.amount, reward);
     }
-    
+
     function getAmountOfDepositors() external view returns (uint256) {
         return depositors.length();
     }
-    
+
     function getDepositor(uint256 _index) external view returns (address) {
-        require(
-            depositors.length() > 0,
-            "empty set"
-        );
-        require(
-            _index < depositors.length(),
-            "invalid index"
-        );
         return depositors.at(_index);
-    }
-    
-    function calculateReward(uint256 _amount, Tariff tariff) public view returns (uint256) {
-        require(
-            _amount > 0,
-            "invalid amount"
-        );
-        uint256 reward = _amount;
-        if (tariff == Tariff.Fast) {
-            reward += _amount * percentagePerMinute * fastTariffDuration / BASE_PERCENTAGE;
-        } else if (tariff == Tariff.Average) {
-            reward += _amount * percentagePerMinute * averageTariffDuration / BASE_PERCENTAGE;
-        } else {
-            reward += _amount * percentagePerMinute * slowTariffDuration / BASE_PERCENTAGE;
-        }
-        return reward;
-    }
-    
-    function getCompletionTime(Tariff tariff) public view returns (uint256) {
-        uint256 completionTime;
-        if (tariff == Tariff.Fast) {
-            completionTime = block.timestamp + fastTariffDuration * SECONDS_PER_MINUTE;
-        } else if (tariff == Tariff.Average) {
-            completionTime = block.timestamp + averageTariffDuration * SECONDS_PER_MINUTE;
-        } else {
-            completionTime = block.timestamp + slowTariffDuration * SECONDS_PER_MINUTE;
-        }
-        return completionTime;
     }
 }
