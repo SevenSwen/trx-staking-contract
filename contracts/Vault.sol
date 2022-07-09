@@ -62,7 +62,10 @@ contract Vault is Ownable, ReentrancyGuard {
         uint256 _percentagePerMinute,
         uint256 _feePercentage,
         address _feeReceiver
-    ) external onlyOwner {
+    )
+        external
+        onlyOwner
+    {
         fastTariffDuration = _fastTariffDuration;
         averageTariffDuration = _averageTariffDuration;
         slowTariffDuration = _slowTariffDuration;
@@ -83,7 +86,13 @@ contract Vault is Ownable, ReentrancyGuard {
         uint256 fee = msg.value * feePercentage / BASE_PERCENTAGE;
         feeReceiver.transfer(fee);
         uint256 completionTime = getCompletionTime(tariff);
-        Deposit memory deposit = Deposit(payable(msg.sender), msg.value - fee, block.timestamp, completionTime, tariff);
+        Deposit memory deposit = Deposit(
+            payable(msg.sender),
+            msg.value - fee,
+            block.timestamp,
+            completionTime,
+            tariff
+        );
         deposits[msg.sender] = deposit;
         depositors.add(msg.sender);
         totalStakingBalance += msg.value - fee;
@@ -133,7 +142,8 @@ contract Vault is Ownable, ReentrancyGuard {
     function calculateReward(uint256 _amount, Tariff tariff) public view returns (uint256) {
         require(
             _amount > 0,
-            "invalid amount");
+            "invalid amount"
+        );
         uint256 reward = _amount;
         if (tariff == Tariff.Fast) {
             reward += _amount * percentagePerMinute * fastTariffDuration / BASE_PERCENTAGE;
