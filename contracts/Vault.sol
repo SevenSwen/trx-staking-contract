@@ -74,11 +74,11 @@ contract Vault is Ownable, ReentrancyGuard {
     function stake(Tariff tariff) external payable nonReentrant {
         require(
             msg.value > 0,
-            "Vault: can not stake 0 TRX"
+            "can not stake 0 TRX"
         );
         require(
             !depositors.contains(msg.sender),
-            "Vault: user is already a staker"
+            "user is already a staker"
         );
         uint256 fee = msg.value * feePercentage / BASE_PERCENTAGE;
         feeReceiver.transfer(fee);
@@ -93,11 +93,11 @@ contract Vault is Ownable, ReentrancyGuard {
     function withdraw() external nonReentrant {
         require(
             depositors.contains(msg.sender),
-            "Vault: user is not a staker"
+            "user is not a staker"
         );
         require(
             block.timestamp >= deposits[msg.sender].completionTime,
-            "Vault: cannot withdraw before completion time"
+            "cannot withdraw before completion time"
         );
         Deposit memory deposit = deposits[msg.sender];
         address payable depositor = deposit.owner;
@@ -121,11 +121,11 @@ contract Vault is Ownable, ReentrancyGuard {
     function getDepositor(uint256 _index) external view returns (address) {
         require(
             depositors.length() > 0,
-            "Vault: empty set"
+            "empty set"
         );
         require(
             _index < depositors.length(),
-            "Vault: invalid index"
+            "invalid index"
         );
         return depositors.at(_index);
     }
@@ -133,7 +133,7 @@ contract Vault is Ownable, ReentrancyGuard {
     function calculateReward(uint256 _amount, Tariff tariff) public view returns (uint256) {
         require(
             _amount > 0,
-            "Vault: invalid amount");
+            "invalid amount");
         uint256 reward = _amount;
         if (tariff == Tariff.Fast) {
             reward += _amount * percentagePerMinute * fastTariffDuration / BASE_PERCENTAGE;

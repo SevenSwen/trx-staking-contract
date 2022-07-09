@@ -25,7 +25,7 @@ describe("Vault", function() {
     
     it("Successful stake() execution", async() => {
         await expect(vault.stake(3, {value: ethers.utils.parseEther("1")})).to.be.reverted;
-        await expect(vault.stake(2, {value: ethers.utils.parseEther("0")})).to.be.revertedWith("Vault: can not stake 0 TRX");
+        await expect(vault.stake(2, {value: ethers.utils.parseEther("0")})).to.be.revertedWith("can not stake 0 TRX");
         await vault.stake(2, {value: ethers.utils.parseEther("1")});
         const deposit = await vault.deposits(owner.address);
         const block = await ethers.provider.getBlock();
@@ -36,13 +36,13 @@ describe("Vault", function() {
         expect(deposit.tariff).to.equal(2);
         expect(await vault.totalStakingBalance()).to.equal(ethers.utils.parseEther("0.9"));
         expect(await vault.getDepositor(0)).to.equal(owner.address);
-        await expect(vault.stake(2, {value: ethers.utils.parseEther("1")})).to.be.revertedWith("Vault: user is already a staker");
+        await expect(vault.stake(2, {value: ethers.utils.parseEther("1")})).to.be.revertedWith("user is already a staker");
     });
     
     it("Successful withdraw() execution", async() => {
-        await expect(vault.withdraw()).to.be.revertedWith("Vault: user is not a staker");
+        await expect(vault.withdraw()).to.be.revertedWith("user is not a staker");
         await vault.stake(2, {value: ethers.utils.parseEther("1")});
-        await expect(vault.withdraw()).to.be.revertedWith("Vault: cannot withdraw before completion time");
+        await expect(vault.withdraw()).to.be.revertedWith("cannot withdraw before completion time");
         increaseTime(600);
         balanceBefore = await ethers.provider.getBalance(owner.address);
         await vault.withdraw();
@@ -65,21 +65,21 @@ describe("Vault", function() {
         expect(deposit.completionTime).to.equal(0);
         expect(deposit.tariff).to.equal(0);
         expect(await vault.totalStakingBalance()).to.equal(0);
-        await expect(vault.getDepositor(0)).to.be.revertedWith("Vault: empty set");
+        await expect(vault.getDepositor(0)).to.be.revertedWith("empty set");
     });
     
     it("Successful getAmountOfDepositors() and getDepositor() execution", async() => {
         expect(await vault.getAmountOfDepositors()).to.equal(0);
-        await expect(vault.getDepositor(0)).to.be.revertedWith("Vault: empty set");
+        await expect(vault.getDepositor(0)).to.be.revertedWith("empty set");
         await vault.stake(2, {value: ethers.utils.parseEther("1")});
         await vault.connect(alice).stake(0, {value: ethers.utils.parseEther("2")});
         expect(await vault.getAmountOfDepositors()).to.equal(2);
-        await expect(vault.getDepositor(2)).to.be.revertedWith("Vault: invalid index");
+        await expect(vault.getDepositor(2)).to.be.revertedWith("invalid index");
         expect(await vault.getDepositor(0)).to.equal(owner.address);
     });
     
     it("Successful calculateReward() execution", async() => {
-        await expect(vault.calculateReward(0, 0)).to.be.revertedWith("Vault: invalid amount");
+        await expect(vault.calculateReward(0, 0)).to.be.revertedWith("invalid amount");
         await expect(vault.calculateReward(1000, 3)).to.be.reverted;
         expect(await vault.calculateReward(1000, 0)).to.equal(1300);
         expect(await vault.calculateReward(1000, 1)).to.equal(1500);
