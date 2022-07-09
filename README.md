@@ -8,5 +8,3 @@
 * npx hardhat test
 ### Run tests with coverage report
 * npx hardhat coverage
-### Set .env file by example (don't use this data)
-* MAINNET = https://speedy-nodes-nyc.moralis.io/5d0c013bce99ca61179921de/bsc/mainnet
