@@ -18,7 +18,6 @@ contract Vault is Ownable, ReentrancyGuard {
         uint256 amount;
         address payable owner;
         uint32 creationTime;
-        uint32 completionTime;
         Tariff tariff;
     }
 
@@ -89,12 +88,10 @@ contract Vault is Ownable, ReentrancyGuard {
         uint256 fee = msg.value * feePercentage / BASE_PERCENTAGE;
         uint256 amount = msg.value - fee;
         feeReceiver.transfer(fee); // 21000 gas cost
-        uint32 completionTime = uint32(block.timestamp) + tariffDuration[tariff] * 1 minutes;
         Deposit memory deposit = Deposit(
             amount,
             payable(msg.sender),
             uint32(block.timestamp),
-            uint32(completionTime),
             tariff
         );
         deposits[msg.sender] = deposit;
@@ -108,11 +105,11 @@ contract Vault is Ownable, ReentrancyGuard {
             depositors.contains(msg.sender),
             "user is not a staker"
         );
+        Deposit memory deposit = deposits[msg.sender];
         require(
-            block.timestamp >= deposits[msg.sender].completionTime,
+            block.timestamp >=  deposit.creationTime + tariffDuration[deposit.tariff] * 1 minutes,
             "cannot withdraw before completion time"
         );
-        Deposit memory deposit = deposits[msg.sender];
         address payable depositor = deposit.owner;
         // uint256 reward = calculateReward(deposit.amount, deposit.tariff); // reward = amount + amount * percentagePerMinute * duration
         uint256 reward = deposit.amount * (1 + percentagePerMinute * uint32(tariffDuration[deposit.tariff]) / BASE_PERCENTAGE);
