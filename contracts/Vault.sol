@@ -4,7 +4,6 @@ pragma solidity 0.8.6;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "hardhat/console.sol";
 
 contract Vault is Ownable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
